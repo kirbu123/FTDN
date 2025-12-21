@@ -1,0 +1,12 @@
+# virtual env
+.venv/
+
+# data libs
+.data/
+data/
+
+# heavy results
+results
+
+# python tmps
+*.pyc

@@ -1,0 +1,8 @@
+torch --extra-index-url https://download.pytorch.org/whl/cu113
+torchvision --extra-index-url https://download.pytorch.org/whl/cu113
+torchmetrics
+
+numpy
+matplotlib
+seaborn
+pandas
