@@ -6,10 +6,11 @@ from torch.optim import AdamW
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 from model import NAFNet
-from loss import Lasso, LassoLPIPS
+from loss import Lasso, LassoLPIPS, L1Chromo
 from dataset import RAWDataset
 from torchmetrics.image import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
 import os
+from utils import set_seed
 
 
 
@@ -79,8 +80,12 @@ def train_pipeline(
     patch_size: int,
     max_infer: int,
     use_distr_transform: bool,
-    loss_fn
+    loss_fn,
+    seed: int = 42
   ):
+    # Set seed
+    set_seed(seed)
+
     # Create directories
     log_dir = os.path.join(out_dir, 'runs', name)
     checkpoint_dir = os.path.join(out_dir, 'checkpoints', name)
@@ -207,12 +212,13 @@ if __name__ == "__main__":
         lr=3e-4,
         device='cuda:6',
         out_dir='/home/buka2004/RAW-DEALL/results',
-        name='FTDN',
+        name='last_one_with_transform',
         ckpt_gap=20,
         aug_p=0.5,
         train_part=0.8,
         patch_size=1024,
         max_infer=4,
         use_distr_transform=True,
-        loss_fn=Lasso()
+        loss_fn=L1Chromo(alpha=0.01),
+        seed=42
     )

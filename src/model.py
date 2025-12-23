@@ -175,10 +175,33 @@ class NAFNet(nn.Module):
                 )
             )
 
-        self.padder_size = 2 ** len(self.encoders)
-
-        self.var = torch.nn.parameter.Parameter(torch.ones(1), requires_grad=True)
+        self.var = 0.0
         self.var_s = torch.nn.parameter.Parameter(torch.ones(1), requires_grad=True)
+
+        self.padder_size = 2 ** len(self.encoders)
+    
+    def _estimate_noise_variance_mad(self, image_tensor):
+        """
+        Estimate Gaussian noise variance using Median Absolute Deviation (MAD)
+        Works best for natural images with smooth areas
+        
+        Args:
+            image_tensor: (B, C, H, W) tensor in range [0, 1] or [0, 255]
+        
+        Returns:
+            variance_estimate: estimated noise variance
+        """
+        
+        h_diff = image_tensor[:, :, :, 1:] - image_tensor[:, :, :, :-1]
+        v_diff = image_tensor[:, :, 1:, :] - image_tensor[:, :, :-1, :]
+        
+        diffs = torch.cat([h_diff.flatten(), v_diff.flatten()])
+        
+        median_val = torch.median(diffs)
+        mad = torch.median(torch.abs(diffs - median_val))
+        sigma_estimate = 1.4826 * mad
+        
+        return sigma_estimate.item()
 
     def _forward_distr_transform(self, x):
         """
@@ -191,7 +214,8 @@ class NAFNet(nn.Module):
         Returns:
             y: Transformed tensor with approximately Gaussian noise (unit variance)
         """
-        var_sq = torch.abs(self.var)
+        self.var = self._estimate_noise_variance_mad(x)
+        var_sq = self.var
         term1 = torch.sqrt(x + var_sq**2)
         term2 = torch.sqrt(x + 1 + var_sq**2)
         y = term1 + term2
@@ -209,8 +233,7 @@ class NAFNet(nn.Module):
         Returns:
             x: Inverse transformed tensor back to original space
         """
-        var_sq = torch.abs(self.var)
-        sigma_s = torch.abs(self.var_s)
+        var_sq = self.var
         
         y_sq = y**2
         y_4 = y**4
@@ -218,7 +241,7 @@ class NAFNet(nn.Module):
         numerator = y_4 - 2 * y_sq + 1
         denominator = 4 * y_sq + eps
         
-        x = sigma_s * (numerator / denominator - var_sq**2)
+        x = self.var_s * (numerator / denominator - var_sq**2)
 
         return x
 

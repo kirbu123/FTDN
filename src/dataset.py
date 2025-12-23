@@ -1,8 +1,10 @@
 import torch
 import numpy as np
+import random
 import os
 from torch.utils.data import Dataset
 from PIL import Image
+from torchvision.transforms.functional import gaussian_blur
 
 
 
@@ -77,14 +79,14 @@ class RAWDataset(Dataset):
         max_val = 2**12 - 1
         raw = (raw / max_val).astype(np.float32)
         raw_tensor = torch.from_numpy(raw).permute(2, 0, 1).float()
-        
+
         srgb_img = Image.open(srgb_path).convert('RGB')
         srgb_tensor = torch.from_numpy(np.array(srgb_img)).permute(2, 0, 1).float() / 255.0
-        
+
         _, h, w = raw_tensor.shape
         patch_h = min(self.patch_size, h)
         patch_w = min(self.patch_size, w)
-        
+
         start_h = np.random.randint(0, max(1, h - patch_h + 1))
         start_w = np.random.randint(0, max(1, w - patch_w + 1))
         
@@ -92,6 +94,9 @@ class RAWDataset(Dataset):
         srgb_patch = srgb_tensor[:, start_h:start_h+patch_h, start_w:start_w+patch_w]
 
         if self.apply_noise and np.random.random() < self.aug_p:
+            # Blur augmentation
+            raw_patch = gaussian_blur(raw_patch, kernel_size=random.choice([3, 5]), sigma=np.random.uniform(0.5, 1.5))
+            # Noise augmentation
             raw_patch = self._poisson_noise(raw_patch, max_lam=0.1)
             raw_patch = self._gaussian_noise(raw_patch, max_sigma=0.02)
         
@@ -100,6 +105,7 @@ class RAWDataset(Dataset):
             'srgb': srgb_patch,
             'name': base_name,
             'dataset': dataset_path,  # Track which dataset it came from
+            'srgb_path': srgb_path,
             'patch_pos': (start_h, start_w)
         }
 
